@@ -41,7 +41,7 @@ exports.register = asyncHandler(async (req, res, next) => {
   // Create verification URL
   const verificationURL = `${req.protocol}://${req.get(
     'host'
-  )}/api/auth/verify-email/${verificationToken}`;
+  )}/api/v1/auth/verify-email/${verificationToken}`;
 
   const message = `You are receiving this email because you need to verify your email address. Please click the link below to verify your email:\n\n${verificationURL}`;
 
