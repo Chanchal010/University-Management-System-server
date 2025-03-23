@@ -39,7 +39,7 @@ exports.register = asyncHandler(async (req, res, next) => {
 
   // Create verification URL - use the client URL instead of server URL
   const clientDomain = process.env.CLIENT_URL || 'https://university-management-system-server.onrender.com';
-  const verificationURL = `${clientDomain}/verify-email/${verificationToken}`;
+  const verificationURL = `${clientDomain}/api/v1/auth/verify-email/${verificationToken}`;
   
   // Check if it's a Gmail address for special handling
   const isGmailRecipient = email.toLowerCase().endsWith('@gmail.com');
