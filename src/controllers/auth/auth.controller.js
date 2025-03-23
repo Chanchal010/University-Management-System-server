@@ -39,7 +39,7 @@ exports.register = asyncHandler(async (req, res, next) => {
   await user.save({ validateBeforeSave: false });
 
   // Create verification URL
-  const verificationURL = `${req.protocol}://${req.get(
+  const verificationURL = `https://${req.get(
     'host'
   )}/api/v1/auth/verify-email/${verificationToken}`;
 
