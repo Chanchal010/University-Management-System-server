@@ -43,16 +43,32 @@ exports.register = asyncHandler(async (req, res, next) => {
     'host'
   )}/api/v1/auth/verify-email/${verificationToken}`;
 
-  const message = `You are receiving this email because you need to verify your email address. Please click the link below to verify your email:\n\n${verificationURL}`;
+  const htmlMessage = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+      <h2 style="color: #333; text-align: center;">Email Verification</h2>
+      <p>Hello ${name},</p>
+      <p>Thank you for registering with our University Management System. Please verify your email address by clicking the button below:</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${verificationURL}" style="background-color: #4CAF50; color: white; padding: 12px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">Verify Email Address</a>
+      </div>
+      <p>If the button doesn't work, you can also click on the link below or copy and paste it into your browser:</p>
+      <p><a href="${verificationURL}">${verificationURL}</a></p>
+      <p>This link will expire in 24 hours.</p>
+      <p>If you did not create an account, please ignore this email.</p>
+      <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
+      <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message, please do not reply to this email.</p>
+    </div>
+  `;
 
   try {
     await sendEmail({
       email: user.email,
-      subject: 'Email Verification',
-      message,
+      subject: 'Email Verification - University Management System',
+      message: `Please verify your email address by clicking the following link: ${verificationURL}`,
+      html: htmlMessage
     });
 
-    sendTokenResponse(user, 201, res,user);
+    sendTokenResponse(user, 201, res, user);
   } catch (err) {
     console.error(err);
     user.emailVerificationToken = undefined;
@@ -221,13 +237,29 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
     'host'
   )}/api/auth/resetpassword/${resetToken}`;
 
-  const message = `You are receiving this email because you (or someone else) has requested the reset of a password. Please click the link below to reset your password:\n\n${resetUrl}`;
+  const htmlResetMessage = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+      <h2 style="color: #333; text-align: center;">Password Reset Request</h2>
+      <p>Hello,</p>
+      <p>You are receiving this email because a password reset was requested for your account. Please click the button below to reset your password:</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${resetUrl}" style="background-color: #4CAF50; color: white; padding: 12px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">Reset Password</a>
+      </div>
+      <p>If the button doesn't work, you can also click on the link below or copy and paste it into your browser:</p>
+      <p><a href="${resetUrl}">${resetUrl}</a></p>
+      <p>This link will expire in 1 hour.</p>
+      <p>If you did not request a password reset, please ignore this email and your password will remain unchanged.</p>
+      <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
+      <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message, please do not reply to this email.</p>
+    </div>
+  `;
 
   try {
     await sendEmail({
       email: user.email,
-      subject: 'Password Reset Token',
-      message,
+      subject: 'Password Reset - University Management System',
+      message: `You are receiving this email because you requested a password reset. Please click the link below: ${resetUrl}`,
+      html: htmlResetMessage
     });
 
     res.status(200).json({ success: true, data: 'Email sent' });

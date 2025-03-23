@@ -14,7 +14,13 @@ const sendEmail = async (options) => {
       },
       tls: {
         rejectUnauthorized: false // Helps with self-signed certificates
-      }
+      },
+      // Add DKIM if available
+      dkim: process.env.DKIM_PRIVATE_KEY ? {
+        domainName: process.env.DKIM_DOMAIN || process.env.EMAIL_FROM_ADDRESS.split('@')[1],
+        keySelector: process.env.DKIM_SELECTOR || 'default',
+        privateKey: process.env.DKIM_PRIVATE_KEY
+      } : undefined
     });
 
     // Verify connection configuration
@@ -27,7 +33,15 @@ const sendEmail = async (options) => {
       to: options.email,
       subject: options.subject,
       text: options.message || '',
-      html: options.html || options.message || ''
+      html: options.html || options.message || '',
+      // Add headers to improve deliverability
+      headers: {
+        'X-Priority': '1',
+        'X-MSMail-Priority': 'High',
+        'Importance': 'High',
+        'List-Unsubscribe': `<mailto:${process.env.EMAIL_FROM_ADDRESS}?subject=Unsubscribe>`,
+        'X-Report-Abuse': `<mailto:${process.env.EMAIL_FROM_ADDRESS}?subject=Report Abuse>`
+      }
     };
     
     // Send email
