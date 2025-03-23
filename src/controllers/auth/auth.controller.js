@@ -35,40 +35,62 @@ exports.register = asyncHandler(async (req, res, next) => {
 
   // Generate email verification token
   const verificationToken = user.getEmailVerificationToken();
-  // console.log(verificationToken);
   await user.save({ validateBeforeSave: false });
 
-  // Create verification URL
-  const verificationURL = `https://${req.get(
-    'host'
-  )}/api/v1/auth/verify-email/${verificationToken}`;
+  // Create verification URL - use the client URL instead of server URL
+  const clientDomain = process.env.CLIENT_URL || 'https://university-management-system-server.onrender.com';
+  const verificationURL = `${clientDomain}/verify-email/${verificationToken}`;
+  
+  // Check if it's a Gmail address for special handling
+  const isGmailRecipient = email.toLowerCase().endsWith('@gmail.com');
 
   const htmlMessage = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-      <h2 style="color: #333; text-align: center;">Email Verification</h2>
-      <p>Hello ${name},</p>
-      <p>Thank you for registering with our University Management System. Please verify your email address by clicking the button below:</p>
-      <div style="text-align: center; margin: 30px 0;">
-        <a href="${verificationURL}" style="background-color: #4CAF50; color: white; padding: 12px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">Verify Email Address</a>
+      <div style="text-align: center; margin-bottom: 20px;">
+        <h2 style="color: #4285F4; margin: 0;">University Management System</h2>
       </div>
-      <p>If the button doesn't work, you can also click on the link below or copy and paste it into your browser:</p>
-      <p><a href="${verificationURL}">${verificationURL}</a></p>
+      <h2 style="color: #333; text-align: center; margin-top: 0;">Confirm Your Email Address</h2>
+      <p>Hello ${name},</p>
+      <p>Thank you for registering with University Management System. Please confirm your email address to complete your registration.</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${verificationURL}" style="background-color: #4285F4; color: white; padding: 12px 25px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Verify Email</a>
+      </div>
+      <p>Or use this link to verify your email address:</p>
+      <p style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; word-break: break-all;"><a href="${verificationURL}" style="color: #4285F4; text-decoration: none;">${verificationURL}</a></p>
       <p>This link will expire in 24 hours.</p>
-      <p>If you did not create an account, please ignore this email.</p>
+      <p>If you did not create an account, you can safely ignore this email.</p>
       <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
-      <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message, please do not reply to this email.</p>
+      <div style="font-size: 12px; color: #777; text-align: center;">
+        <p>&copy; ${new Date().getFullYear()} University Management System</p>
+        <p>This is an automated message from our registration system.</p>
+        <p>For questions, contact <a href="mailto:${process.env.EMAIL_FROM_ADDRESS}" style="color: #4285F4; text-decoration: none;">${process.env.EMAIL_FROM_ADDRESS}</a></p>
+      </div>
     </div>
   `;
 
   try {
-    await sendEmail({
+    const emailResult = await sendEmail({
       email: user.email,
-      subject: 'Email Verification - University Management System',
-      message: `Please verify your email address by clicking the following link: ${verificationURL}`,
+      subject: 'Confirm your email for University Management System',
+      message: `Please confirm your email address by using this link: ${verificationURL}`,
       html: htmlMessage
     });
 
-    sendTokenResponse(user, 201, res, user);
+    if (!emailResult.success) {
+      console.error('Email send error:', emailResult.error);
+      user.emailVerificationToken = undefined;
+      await user.save({ validateBeforeSave: false });
+
+      return res.status(500).json({
+        success: false,
+        message: 'Email could not be sent, please try again later',
+      });
+    }
+
+    // Don't send the token in the response for security
+    const userData = await User.findById(user._id).select('-password');
+
+    sendTokenResponse(userData, 201, res);
   } catch (err) {
     console.error(err);
     user.emailVerificationToken = undefined;
@@ -239,18 +261,25 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
 
   const htmlResetMessage = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-      <h2 style="color: #333; text-align: center;">Password Reset Request</h2>
-      <p>Hello,</p>
-      <p>You are receiving this email because a password reset was requested for your account. Please click the button below to reset your password:</p>
-      <div style="text-align: center; margin: 30px 0;">
-        <a href="${resetUrl}" style="background-color: #4CAF50; color: white; padding: 12px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">Reset Password</a>
+      <div style="text-align: center; margin-bottom: 20px;">
+        <h2 style="color: #4285F4; margin: 0;">University Management System</h2>
       </div>
-      <p>If the button doesn't work, you can also click on the link below or copy and paste it into your browser:</p>
-      <p><a href="${resetUrl}">${resetUrl}</a></p>
-      <p>This link will expire in 1 hour.</p>
-      <p>If you did not request a password reset, please ignore this email and your password will remain unchanged.</p>
+      <h2 style="color: #333; text-align: center; margin-top: 0;">Password Reset</h2>
+      <p>Hello,</p>
+      <p>We received a request to reset your password for your University Management System account. To proceed with resetting your password, please click the button below:</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${resetUrl}" style="background-color: #4285F4; color: white; padding: 12px 25px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Reset My Password</a>
+      </div>
+      <p>Or copy and paste this link into your browser:</p>
+      <p style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; word-break: break-all;"><a href="${resetUrl}" style="color: #4285F4; text-decoration: none;">${resetUrl}</a></p>
+      <p>This link will expire in 1 hour for security reasons.</p>
+      <p>If you did not request a password reset, please disregard this email and ensure your account is secure.</p>
       <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
-      <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message, please do not reply to this email.</p>
+      <div style="font-size: 12px; color: #777; text-align: center;">
+        <p>&copy; ${new Date().getFullYear()} University Management System. All rights reserved.</p>
+        <p>This is an automated message, please do not reply. If you need assistance, please contact support.</p>
+        <p><a href="https://university-management-system-server.onrender.com" style="color: #4285F4; text-decoration: none;">University Management System</a></p>
+      </div>
     </div>
   `;
 
@@ -323,36 +352,53 @@ exports.resetPassword = asyncHandler(async (req, res, next) => {
  * @access  Public
  */
 exports.verifyEmail = asyncHandler(async (req, res, next) => {
-  // Get hashed token
-  const emailVerificationToken = crypto
-    .createHash('sha256')
-    .update(req.params.verificationtoken)
-    .digest('hex');
+  try {
+    // Get hashed token
+    const emailVerificationToken = crypto
+      .createHash('sha256')
+      .update(req.params.verificationtoken)
+      .digest('hex');
 
-  const user = await User.findOne({
-    emailVerificationToken,
-  });
+    const user = await User.findOne({
+      emailVerificationToken,
+    });
 
-  if (!user) {
-    return res.status(400).json({
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired verification token',
+      });
+    }
+
+    // Set email as verified
+    user.emailVerified = true;
+    user.emailVerificationToken = undefined;
+    await user.save({ validateBeforeSave: false });
+
+    // Return either HTML for browser or JSON for API
+    const acceptHeader = req.headers.accept || '';
+    if (acceptHeader.includes('text/html')) {
+      // If accessed directly in browser, redirect to frontend
+      const clientUrl = process.env.CLIENT_URL || 'https://university-management-system-server.onrender.com';
+      return res.redirect(`${clientUrl}/login?verified=true`);
+    }
+
+    // API response
+    return res.status(200).json({
+      success: true,
+      message: 'Email verified successfully',
+    });
+  } catch (error) {
+    console.error('Email verification error:', error);
+    return res.status(500).json({
       success: false,
-      message: 'Invalid token',
+      message: 'Email verification failed',
     });
   }
-
-  // Set email as verified
-  user.emailVerified = true;
-  user.emailVerificationToken = undefined;
-  await user.save();
-
-  res.status(200).json({
-    success: true,
-    message: 'Email verified successfully',
-  });
 });
 
 // Helper function to get token from model, create cookie and send response
-const sendTokenResponse = (user, statusCode, res, data) => {
+const sendTokenResponse = (user, statusCode, res) => {
   // Create token
   const token = user.getSignedJwtToken();
 
@@ -370,6 +416,6 @@ const sendTokenResponse = (user, statusCode, res, data) => {
   res.status(statusCode).cookie('token', token, options).json({
     success: true,
     token,
-    data,
+    data: user,
   });
 }; 
