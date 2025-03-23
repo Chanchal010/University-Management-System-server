@@ -37,9 +37,10 @@ exports.register = asyncHandler(async (req, res, next) => {
   const verificationToken = user.getEmailVerificationToken();
   await user.save({ validateBeforeSave: false });
 
-  // Create verification URL - use the client URL instead of server URL
-  const clientDomain = process.env.CLIENT_URL || 'https://university-management-system-server.onrender.com';
-  const verificationURL = `${clientDomain}/api/v1/auth/verify-email/${verificationToken}`;
+  // Create verification URL - use the server API URL 
+  // The server URL is where the verification endpoint exists
+  const serverURL = process.env.SERVER_URL || 'https://university-management-system-server.onrender.com';
+  const verificationURL = `${serverURL}/api/v1/auth/verify-email/${verificationToken}`;
   
   // Check if it's a Gmail address for special handling
   const isGmailRecipient = email.toLowerCase().endsWith('@gmail.com');
@@ -375,19 +376,59 @@ exports.verifyEmail = asyncHandler(async (req, res, next) => {
     user.emailVerificationToken = undefined;
     await user.save({ validateBeforeSave: false });
 
-    // Return either HTML for browser or JSON for API
-    const acceptHeader = req.headers.accept || '';
-    if (acceptHeader.includes('text/html')) {
-      // If accessed directly in browser, redirect to frontend
-      const clientUrl = process.env.CLIENT_URL || 'https://university-management-system-server.onrender.com';
-      return res.redirect(`${clientUrl}/login?verified=true`);
-    }
+    // Return HTML response with verification success message
+    const htmlResponse = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Email Verified</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          text-align: center;
+          margin-top: 50px;
+          background-color: #f7f9fc;
+        }
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 30px;
+          background-color: white;
+          border-radius: 8px;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+          color: #4285F4;
+        }
+        .success-icon {
+          font-size: 60px;
+          color: #4CAF50;
+          margin: 20px 0;
+        }
+        .btn {
+          display: inline-block;
+          background-color: #4285F4;
+          color: white;
+          padding: 12px 24px;
+          text-decoration: none;
+          border-radius: 4px;
+          margin-top: 20px;
+          font-weight: bold;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Email Verified Successfully</h1>
+        <div class="success-icon">✓</div>
+        <p>Your email has been verified successfully. You can now log in to your account.</p>
+        <a href="${process.env.CLIENT_URL || 'https://university-management-system-client.vercel.app'}" class="btn">Go to Login</a>
+      </div>
+    </body>
+    </html>
+    `;
 
-    // API response
-    return res.status(200).json({
-      success: true,
-      message: 'Email verified successfully',
-    });
+    return res.send(htmlResponse);
   } catch (error) {
     console.error('Email verification error:', error);
     return res.status(500).json({
